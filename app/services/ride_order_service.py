@@ -48,7 +48,7 @@ class RideOrderService:
 
         ride = self.ride_repository.create_ride(
             customer_id=customer.id,
-            status=RideStatus.SEARCHING_DRIVER,
+            status=RideStatus.WAITING_FOR_CONFIRMATION,
             origin_text=speech.origin_text,
             destination_text=speech.destination_text,
             notes_text=speech.notes_text,

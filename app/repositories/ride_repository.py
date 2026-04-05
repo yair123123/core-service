@@ -58,6 +58,7 @@ class RideRepository:
         return ride
 
     def confirm_ride(self, ride: RideModel) -> RideModel:
+        ride.status = RideStatus.SEARCHING_DRIVER
         ride.confirmed_at = datetime.now(UTC)
         self.db.flush()
         return ride
