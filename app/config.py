@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     latest_app_version: str = "1.0.0"
     app_update_url: str | None = None
     app_update_message: str = "A newer app version is available."
+    auth_jwt_secret: str = "change-me"
+    auth_jwt_algorithm: str = "HS256"
+    auth_access_token_expires_in_seconds: int = Field(default=3600, gt=0)
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="CORE_SERVICE_", extra="ignore")
 
