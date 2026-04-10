@@ -1,4 +1,5 @@
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
@@ -7,13 +8,21 @@ from app.repositories.customer_repository import CustomerRepository
 from app.repositories.driver_repository import DriverRepository
 from app.repositories.ride_event_repository import RideEventRepository
 from app.repositories.ride_repository import RideRepository
+from app.repositories.station_repository import StationRepository
+from app.repositories.user_repository import UserRepository
+from app.services.auth_service import AuthService
 from app.services.call_routing_service import CallRoutingService
 from app.services.phone_normalizer import PhoneNormalizer
 from app.services.pricing_service import PricingService
 from app.services.ride_cancellation_service import RideCancellationService
 from app.services.ride_confirmation_service import RideConfirmationService
 from app.services.ride_order_service import RideOrderService
+from app.services.security import decode_token
+from app.services.station_service import StationService
 from app.services.speech_processing_adapter import SpeechProcessingAdapter
+from app.domain.schemas.auth import CurrentUserResponse
+
+http_bearer = HTTPBearer(auto_error=False)
 
 
 def get_customer_repository(db: Session = Depends(get_db_session)) -> CustomerRepository:
@@ -30,6 +39,14 @@ def get_ride_repository(db: Session = Depends(get_db_session)) -> RideRepository
 
 def get_ride_event_repository(db: Session = Depends(get_db_session)) -> RideEventRepository:
     return RideEventRepository(db)
+
+
+def get_user_repository(db: Session = Depends(get_db_session)) -> UserRepository:
+    return UserRepository(db)
+
+
+def get_station_repository(db: Session = Depends(get_db_session)) -> StationRepository:
+    return StationRepository(db)
 
 
 def get_phone_normalizer() -> PhoneNormalizer:
@@ -84,3 +101,51 @@ def get_ride_cancellation_service(
     phone_normalizer: PhoneNormalizer = Depends(get_phone_normalizer),
 ) -> RideCancellationService:
     return RideCancellationService(customer_repository, ride_repository, ride_event_repository, phone_normalizer)
+
+
+def get_auth_service(
+    user_repository: UserRepository = Depends(get_user_repository),
+    settings: Settings = Depends(get_settings),
+) -> AuthService:
+    return AuthService(user_repository, settings)
+
+
+def get_station_service(
+    station_repository: StationRepository = Depends(get_station_repository),
+) -> StationService:
+    return StationService(station_repository)
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer),
+    user_repository: UserRepository = Depends(get_user_repository),
+    settings: Settings = Depends(get_settings),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> CurrentUserResponse:
+    if credentials is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
+
+    token = credentials.credentials
+    try:
+        payload = decode_token(
+            token=token,
+            secret_key=settings.auth_jwt_secret,
+            algorithm=settings.auth_jwt_algorithm,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token") from exc
+
+    if payload.get("type") != "access":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+    subject = payload.get("sub")
+    if subject is None or not str(subject).isdigit():
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+    user = user_repository.get_by_id(int(subject))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
+
+    return auth_service.to_current_user_response(user)
