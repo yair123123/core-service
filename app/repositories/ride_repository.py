@@ -33,6 +33,12 @@ class RideRepository:
         stmt = select(RideModel).where(RideModel.driver_id == driver_id, RideModel.status.in_(DRIVER_ACTIVE_STATUSES))
         return list(self.db.scalars(stmt).all())
 
+    def get_open_rides_for_station_ids(self, station_ids: list[int]) -> list[RideModel]:
+        if not station_ids:
+            return []
+        stmt = select(RideModel).where(RideModel.station_id.in_(station_ids), RideModel.status.in_(OPEN_RIDE_STATUSES))
+        return list(self.db.scalars(stmt).all())
+
     def create_ride(self, customer_id: int, status: RideStatus, **fields: Any) -> RideModel:
         ride = RideModel(customer_id=customer_id, status=status, **fields)
         self.db.add(ride)

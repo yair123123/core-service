@@ -17,6 +17,7 @@ from app.services.pricing_service import PricingService
 from app.services.ride_cancellation_service import RideCancellationService
 from app.services.ride_confirmation_service import RideConfirmationService
 from app.services.ride_order_service import RideOrderService
+from app.services.ride_service import RideService
 from app.services.security import decode_token
 from app.services.station_service import StationService
 from app.services.speech_processing_adapter import SpeechProcessingAdapter
@@ -101,6 +102,12 @@ def get_ride_cancellation_service(
     phone_normalizer: PhoneNormalizer = Depends(get_phone_normalizer),
 ) -> RideCancellationService:
     return RideCancellationService(customer_repository, ride_repository, ride_event_repository, phone_normalizer)
+
+
+def get_ride_service(
+    ride_repository: RideRepository = Depends(get_ride_repository),
+) -> RideService:
+    return RideService(ride_repository)
 
 
 def get_auth_service(
