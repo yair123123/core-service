@@ -20,3 +20,4 @@ class StationModel(Base):
 
     dispatcher_user_links = relationship("UserDispatcherStationModel", back_populates="station")
     driver_user_links = relationship("UserDriverStationModel", back_populates="station")
+    rides = relationship("RideModel", back_populates="station")
