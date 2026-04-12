@@ -6,6 +6,7 @@ from app.config import Settings, get_settings
 from app.db.session import get_db_session
 from app.repositories.customer_repository import CustomerRepository
 from app.repositories.driver_repository import DriverRepository
+from app.repositories.reference_data_repository import ReferenceDataRepository
 from app.repositories.ride_event_repository import RideEventRepository
 from app.repositories.ride_repository import RideRepository
 from app.repositories.station_repository import StationRepository
@@ -15,6 +16,7 @@ from app.services.call_routing_service import CallRoutingService
 from app.services.phone_normalizer import PhoneNormalizer
 from app.services.pricing_service import PricingService
 from app.services.ride_cancellation_service import RideCancellationService
+from app.services.reference_data_service import ReferenceDataService
 from app.services.ride_confirmation_service import RideConfirmationService
 from app.services.ride_order_service import RideOrderService
 from app.services.ride_service import RideService
@@ -48,6 +50,10 @@ def get_user_repository(db: Session = Depends(get_db_session)) -> UserRepository
 
 def get_station_repository(db: Session = Depends(get_db_session)) -> StationRepository:
     return StationRepository(db)
+
+
+def get_reference_data_repository(db: Session = Depends(get_db_session)) -> ReferenceDataRepository:
+    return ReferenceDataRepository(db)
 
 
 def get_phone_normalizer() -> PhoneNormalizer:
@@ -121,6 +127,12 @@ def get_station_service(
     station_repository: StationRepository = Depends(get_station_repository),
 ) -> StationService:
     return StationService(station_repository)
+
+
+def get_reference_data_service(
+    reference_data_repository: ReferenceDataRepository = Depends(get_reference_data_repository),
+) -> ReferenceDataService:
+    return ReferenceDataService(reference_data_repository)
 
 
 def get_current_user(

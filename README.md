@@ -65,3 +65,16 @@ curl -X POST http://localhost:8000/internal/rides/1/confirm
 ```bash
 curl -X POST http://localhost:8000/internal/rides/by-customer/0521234567/cancel-searching
 ```
+
+
+### Reference data bundle
+```bash
+curl http://localhost:8000/reference-data
+```
+
+### Reference data by dataset
+```bash
+curl http://localhost:8000/reference-data/cities
+curl http://localhost:8000/reference-data/price-templates
+curl http://localhost:8000/reference-data/additional-message-templates
+```
