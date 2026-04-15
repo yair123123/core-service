@@ -13,7 +13,8 @@ class RideModel(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True, nullable=False)
-    driver_id: Mapped[int | None] = mapped_column(ForeignKey("drivers.id"), index=True, nullable=True)
+    driver_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
+    dispatcher_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     station_id: Mapped[int | None] = mapped_column(ForeignKey("stations.id"), index=True, nullable=True)
 
     origin_text: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -41,6 +42,7 @@ class RideModel(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     customer = relationship("CustomerModel", back_populates="rides")
-    driver = relationship("DriverModel", back_populates="rides")
+    driver = relationship("UserModel", back_populates="rides")
+    dispatcher = relationship("UserModel", back_populates="rides")
     station = relationship("StationModel", back_populates="rides")
     events = relationship("RideEventModel", back_populates="ride")

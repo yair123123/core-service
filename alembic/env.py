@@ -9,7 +9,7 @@ from app.db.models import (
     additional_message_template_model,
     city_model,
     customer_model,
-    driver_model,
+    driver_profile_model,
     price_template_model,
     ride_event_model,
     ride_model,

@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "core-service"
     environment: str = "dev"
-    database_url: str = "sqlite:///./core_service.db"
+    database_url: str = "postgresql://postgres:1234@localhost:5432/taxi_db"
     fixed_city_ride_price: float = Field(default=25.0, gt=0)
     service_version: str = "1.0.0"
     min_supported_app_version: str = "1.0.0"

@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app.db.session import SessionLocal
 from app.db.models.customer_model import CustomerModel
-from app.db.models.driver_model import DriverModel
+from app.db.models.driver_profile_model import DriverProfileModel
 from app.db.models.ride_event_model import RideEventModel
 from app.db.models.ride_model import RideModel
 from app.db.models.station_model import StationModel
@@ -39,10 +39,10 @@ def _get_or_create_customer(session, phone_number: str) -> CustomerModel:
     return customer
 
 
-def _get_or_create_driver(session, phone_number: str, name: str, is_active: bool = True) -> DriverModel:
-    driver = session.execute(select(DriverModel).where(DriverModel.phone_number == phone_number)).scalar_one_or_none()
+def _get_or_create_driver(session, phone_number: str, name: str, is_active: bool = True) -> DriverProfileModel:
+    driver = session.execute(select(DriverProfileModel).where(DriverProfileModel.phone_number == phone_number)).scalar_one_or_none()
     if driver is None:
-        driver = DriverModel(phone_number=phone_number, name=name, is_active=is_active)
+        driver = DriverProfileModel(phone_number=phone_number, name=name, is_active=is_active)
         session.add(driver)
         session.flush()
         return driver
