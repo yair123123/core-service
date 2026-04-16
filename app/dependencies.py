@@ -13,9 +13,12 @@ from app.repositories.station_repository import StationRepository
 from app.repositories.user_repository import UserRepository
 from app.services.auth_service import AuthService
 from app.services.call_routing_service import CallRoutingService
+from app.services.dispatcher_ride_service import DispatcherRideService
 from app.services.phone_normalizer import PhoneNormalizer
 from app.services.pricing_service import PricingService
 from app.services.ride_cancellation_service import RideCancellationService
+from app.services.ride_command_builders import DispatcherRideCommandBuilder, PhoneRideCommandBuilder
+from app.services.ride_creation_service import RideCreationService
 from app.services.reference_data_service import ReferenceDataService
 from app.services.ride_confirmation_service import RideConfirmationService
 from app.services.ride_order_service import RideOrderService
@@ -68,6 +71,21 @@ def get_pricing_service(settings: Settings = Depends(get_settings)) -> PricingSe
     return PricingService(fixed_city_ride_price=settings.fixed_city_ride_price)
 
 
+def get_dispatcher_ride_command_builder() -> DispatcherRideCommandBuilder:
+    return DispatcherRideCommandBuilder()
+
+
+def get_phone_ride_command_builder() -> PhoneRideCommandBuilder:
+    return PhoneRideCommandBuilder()
+
+
+def get_ride_creation_service(
+    ride_repository: RideRepository = Depends(get_ride_repository),
+    ride_event_repository: RideEventRepository = Depends(get_ride_event_repository),
+) -> RideCreationService:
+    return RideCreationService(ride_repository, ride_event_repository)
+
+
 def get_call_routing_service(
     customer_repository: CustomerRepository = Depends(get_customer_repository),
     driver_repository: DriverRepository = Depends(get_driver_repository),
@@ -79,18 +97,20 @@ def get_call_routing_service(
 def get_ride_order_service(
     customer_repository: CustomerRepository = Depends(get_customer_repository),
     ride_repository: RideRepository = Depends(get_ride_repository),
-    ride_event_repository: RideEventRepository = Depends(get_ride_event_repository),
     phone_normalizer: PhoneNormalizer = Depends(get_phone_normalizer),
     speech_processing_adapter: SpeechProcessingAdapter = Depends(get_speech_processing_adapter),
     pricing_service: PricingService = Depends(get_pricing_service),
+    phone_command_builder: PhoneRideCommandBuilder = Depends(get_phone_ride_command_builder),
+    ride_creation_service: RideCreationService = Depends(get_ride_creation_service),
 ) -> RideOrderService:
     return RideOrderService(
         customer_repository,
         ride_repository,
-        ride_event_repository,
         phone_normalizer,
         speech_processing_adapter,
         pricing_service,
+        phone_command_builder,
+        ride_creation_service,
     )
 
 
@@ -168,3 +188,12 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
 
     return auth_service.to_current_user_response(user)
+
+
+def get_dispatcher_ride_service(
+    customer_repository: CustomerRepository = Depends(get_customer_repository),
+    phone_normalizer: PhoneNormalizer = Depends(get_phone_normalizer),
+    dispatcher_command_builder: DispatcherRideCommandBuilder = Depends(get_dispatcher_ride_command_builder),
+    ride_creation_service: RideCreationService = Depends(get_ride_creation_service),
+) -> DispatcherRideService:
+    return DispatcherRideService(customer_repository, phone_normalizer, dispatcher_command_builder, ride_creation_service)

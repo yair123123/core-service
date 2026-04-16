@@ -42,7 +42,7 @@ class RideModel(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     customer = relationship("CustomerModel", back_populates="rides")
-    driver = relationship("UserModel", back_populates="rides")
-    dispatcher = relationship("UserModel", back_populates="rides")
+    driver = relationship("UserModel", foreign_keys=[driver_id], back_populates="driver_rides")
+    dispatcher = relationship("UserModel", foreign_keys=[dispatcher_id], back_populates="dispatched_rides")
     station = relationship("StationModel", back_populates="rides")
     events = relationship("RideEventModel", back_populates="ride")

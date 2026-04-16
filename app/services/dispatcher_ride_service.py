@@ -1,0 +1,33 @@
+from fastapi import HTTPException, status
+
+from app.domain.schemas.auth import CurrentUserResponse
+from app.domain.schemas.ride_request import CreateRideFromDispatcherRequest
+from app.repositories.customer_repository import CustomerRepository
+from app.services.phone_normalizer import PhoneNormalizer
+from app.services.ride_command_builders import DispatcherRideCommandBuilder
+from app.services.ride_creation_service import RideCreationService
+
+
+class DispatcherRideService:
+    def __init__(
+        self,
+        customer_repository: CustomerRepository,
+        phone_normalizer: PhoneNormalizer,
+        dispatcher_command_builder: DispatcherRideCommandBuilder,
+        ride_creation_service: RideCreationService,
+    ) -> None:
+        self.customer_repository = customer_repository
+        self.phone_normalizer = phone_normalizer
+        self.dispatcher_command_builder = dispatcher_command_builder
+        self.ride_creation_service = ride_creation_service
+
+    def create_ride(self, payload: CreateRideFromDispatcherRequest, current_user: CurrentUserResponse):
+        if not current_user.is_dispatcher:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dispatcher role is required")
+        if payload.station_id not in current_user.dispatcher_stations_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dispatcher cannot create ride for this station")
+
+        phone = self.phone_normalizer.normalize_israeli_phone(payload.customer_phone)
+        customer = self.customer_repository.get_or_create_by_phone(phone)
+        command = self.dispatcher_command_builder.build(payload=payload, current_user=current_user, customer_id=customer.id)
+        return self.ride_creation_service.create_ride(command)
