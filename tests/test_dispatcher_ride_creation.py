@@ -1,5 +1,7 @@
 import json
 
+import httpx
+
 from app.config import get_settings
 from app.db.models.customer_model import CustomerModel
 from app.db.models.ride_event_model import RideEventModel
@@ -37,7 +39,22 @@ def _access_token_for_user(user_id: int) -> str:
     )
 
 
-def test_dispatcher_create_ride_uses_unified_creation_flow(client, db_session):
+def test_dispatcher_create_ride_uses_unified_creation_flow(client, db_session, monkeypatch):
+    called_payload: dict = {}
+
+    class _FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+    def _fake_post(url: str, json: dict, headers: dict, timeout: float):
+        called_payload["url"] = url
+        called_payload["json"] = json
+        called_payload["headers"] = headers
+        called_payload["timeout"] = timeout
+        return _FakeResponse()
+
+    monkeypatch.setattr(httpx, "post", _fake_post)
+
     user = _create_user(db_session, is_dispatcher=True, dispatcher_stations=[3])
     token = _access_token_for_user(user.id)
     payload = {
@@ -70,6 +87,9 @@ def test_dispatcher_create_ride_uses_unified_creation_flow(client, db_session):
     event = db_session.query(RideEventModel).filter_by(ride_id=ride.id, event_type="RIDE_CREATED").one()
     event_payload = json.loads(event.payload_json) if isinstance(event.payload_json, str) else event.payload_json
     assert event_payload["source"] == "dispatcher"
+    assert called_payload["url"].endswith("/internal/dispatch/start-round")
+    assert called_payload["json"]["rideId"] == ride.id
+    assert called_payload["json"]["roundNumber"] == 1
 
 
 def test_dispatcher_cannot_create_for_unassigned_station(client, db_session):

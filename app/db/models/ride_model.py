@@ -31,6 +31,10 @@ class RideModel(Base):
 
     price_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     status: Mapped[RideStatus] = mapped_column(Enum(RideStatus), nullable=False, index=True)
+    dispatch_round_number: Mapped[int] = mapped_column(default=0, nullable=False)
+    dispatch_current_round_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    last_dispatch_result_round_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    last_dispatch_result_status: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

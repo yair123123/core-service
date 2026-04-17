@@ -63,6 +63,18 @@ class RideRepository:
         self.db.flush()
         return ride
 
+    def set_dispatch_round(self, ride: RideModel, round_number: int, round_id: str) -> RideModel:
+        ride.dispatch_round_number = round_number
+        ride.dispatch_current_round_id = round_id
+        self.db.flush()
+        return ride
+
+    def set_dispatch_result(self, ride: RideModel, round_id: str, status: str) -> RideModel:
+        ride.last_dispatch_result_round_id = round_id
+        ride.last_dispatch_result_status = status
+        self.db.flush()
+        return ride
+
     def confirm_ride(self, ride: RideModel) -> RideModel:
         ride.confirmed_at = datetime.now(UTC)
         self.db.flush()

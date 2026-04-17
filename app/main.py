@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.api.routes.auth import router as auth_router
 from app.api.routes.health import router as health_router
 from app.api.routes.internal_call_routing import router as call_routing_router
+from app.api.routes.internal_dispatch import router as internal_dispatch_router
 from app.api.routes.internal_orders import router as internal_orders_router
 from app.api.routes.internal_rides import router as internal_rides_router
 from app.api.routes.reference_data import router as reference_data_router
@@ -23,3 +24,4 @@ app.include_router(rides_router)
 app.include_router(call_routing_router)
 app.include_router(internal_orders_router)
 app.include_router(internal_rides_router)
+app.include_router(internal_dispatch_router)
