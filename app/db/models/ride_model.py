@@ -16,6 +16,8 @@ class RideModel(Base):
     driver_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     dispatcher_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     station_id: Mapped[int | None] = mapped_column(ForeignKey("stations.id"), index=True, nullable=True)
+    origin_address_id: Mapped[int | None] = mapped_column(ForeignKey("addresses.id"), index=True, nullable=True)
+    destination_address_id: Mapped[int | None] = mapped_column(ForeignKey("addresses.id"), index=True, nullable=True)
 
     origin_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     destination_text: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -49,4 +51,6 @@ class RideModel(Base):
     driver = relationship("UserModel", foreign_keys=[driver_id], back_populates="driver_rides")
     dispatcher = relationship("UserModel", foreign_keys=[dispatcher_id], back_populates="dispatched_rides")
     station = relationship("StationModel", back_populates="rides")
+    origin_address = relationship("AddressModel", foreign_keys=[origin_address_id], back_populates="origin_rides")
+    destination_address = relationship("AddressModel", foreign_keys=[destination_address_id], back_populates="destination_rides")
     events = relationship("RideEventModel", back_populates="ride")

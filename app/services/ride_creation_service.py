@@ -20,6 +20,8 @@ class CreateRideCommand:
     destination_city: str | None
     destination_street: str | None
     destination_house_number: str | None
+    origin_address_id: int | None
+    destination_address_id: int | None
     price_amount: Decimal | float | None
     station_id: int | None = None
     dispatcher_id: int | None = None
@@ -50,6 +52,8 @@ class RideCreationService:
             destination_city=command.destination_city,
             destination_street=command.destination_street,
             destination_house_number=command.destination_house_number,
+            origin_address_id=command.origin_address_id,
+            destination_address_id=command.destination_address_id,
             price_amount=command.price_amount,
             station_id=command.station_id,
             dispatcher_id=command.dispatcher_id,

@@ -1,6 +1,9 @@
+from fastapi import HTTPException, status
+
 from app.domain.schemas.ride_order_processing import ProcessCallOrderRequest, ProcessCallOrderResponse
 from app.repositories.customer_repository import CustomerRepository
 from app.repositories.ride_repository import RideRepository
+from app.services.address_service import AddressInput, AddressResolutionError, AddressService
 from app.services.phone_normalizer import PhoneNormalizer
 from app.services.pricing_service import PricingService
 from app.services.ride_command_builders import CreateRideFromPhoneInput, PhoneRideCommandBuilder
@@ -17,6 +20,7 @@ class RideOrderService:
         speech_processing_adapter: SpeechProcessingAdapter,
         pricing_service: PricingService,
         phone_command_builder: PhoneRideCommandBuilder,
+        address_service: AddressService,
         ride_creation_service: RideCreationService,
     ) -> None:
         self.customer_repository = customer_repository
@@ -25,6 +29,7 @@ class RideOrderService:
         self.speech_processing_adapter = speech_processing_adapter
         self.pricing_service = pricing_service
         self.phone_command_builder = phone_command_builder
+        self.address_service = address_service
         self.ride_creation_service = ride_creation_service
 
     def process_call_order(self, payload: ProcessCallOrderRequest) -> ProcessCallOrderResponse:
@@ -48,8 +53,31 @@ class RideOrderService:
         )
         price = self.pricing_service.compute_price(speech.origin_city, speech.destination_city)
 
+        try:
+            origin_address, destination_address = self.address_service.resolve_and_create_address_batch(
+                AddressInput(
+                    city=speech.origin_city,
+                    street=speech.origin_street,
+                    house_number=speech.origin_house_number,
+                ),
+                AddressInput(
+                    city=speech.destination_city,
+                    street=speech.destination_street,
+                    house_number=speech.destination_house_number,
+                ),
+            )
+        except AddressResolutionError as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
         command = self.phone_command_builder.build(
-            CreateRideFromPhoneInput(payload=payload, customer_id=customer.id, speech=speech, price=price)
+            CreateRideFromPhoneInput(
+                payload=payload,
+                customer_id=customer.id,
+                speech=speech,
+                price=price,
+                origin_address_id=origin_address.id,
+                destination_address_id=destination_address.id,
+            )
         )
         ride = self.ride_creation_service.create_ride(command)
 

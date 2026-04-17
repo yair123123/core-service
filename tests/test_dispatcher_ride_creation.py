@@ -3,6 +3,7 @@ import json
 import httpx
 
 from app.config import get_settings
+from app.db.models.address_model import AddressModel
 from app.db.models.customer_model import CustomerModel
 from app.db.models.ride_event_model import RideEventModel
 from app.db.models.ride_model import RideModel
@@ -43,10 +44,57 @@ def test_dispatcher_create_ride_uses_unified_creation_flow(client, db_session, m
     called_payload: dict = {}
 
     class _FakeResponse:
+        def __init__(self, payload: dict | None = None) -> None:
+            self._payload = payload or {}
+
         def raise_for_status(self) -> None:
             return None
 
-    def _fake_post(url: str, json: dict, headers: dict, timeout: float):
+        def json(self) -> dict:
+            return self._payload
+
+    def _fake_post(url: str, json: dict, headers: dict | None = None, timeout: float = 5.0):
+        if url.endswith("/v1/geocode/batch"):
+            return _FakeResponse(
+                {
+                    "success": True,
+                    "results": [
+                        {
+                            "success": True,
+                            "query": json["addresses"][0],
+                            "result": {
+                                "lat": 32.1,
+                                "lon": 34.8,
+                                "formatted_address": "A",
+                                "provider": "mapbox",
+                                "provider_place_id": "1",
+                                "match_quality": "high",
+                                "partial_match": False,
+                            },
+                            "warnings": [],
+                            "error": None,
+                        },
+                        {
+                            "success": True,
+                            "query": json["addresses"][1],
+                            "result": {
+                                "lat": 32.2,
+                                "lon": 34.9,
+                                "formatted_address": "B",
+                                "provider": "mapbox",
+                                "provider_place_id": "2",
+                                "match_quality": "high",
+                                "partial_match": False,
+                            },
+                            "warnings": [],
+                            "error": None,
+                        },
+                    ],
+                    "warnings": [],
+                    "error": None,
+                }
+            )
+
         called_payload["url"] = url
         called_payload["json"] = json
         called_payload["headers"] = headers
@@ -83,6 +131,11 @@ def test_dispatcher_create_ride_uses_unified_creation_flow(client, db_session, m
     assert ride.customer_id == customer.id
     assert ride.dispatcher_id == user.id
     assert ride.station_id == 3
+    assert ride.origin_address_id is not None
+    assert ride.destination_address_id is not None
+
+    addresses = db_session.query(AddressModel).all()
+    assert len(addresses) == 2
 
     event = db_session.query(RideEventModel).filter_by(ride_id=ride.id, event_type="RIDE_CREATED").one()
     event_payload = json.loads(event.payload_json) if isinstance(event.payload_json, str) else event.payload_json

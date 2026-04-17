@@ -1,4 +1,5 @@
 from app.db.models.additional_message_template_model import AdditionalMessageTemplateModel
+from app.db.models.address_model import AddressModel
 from app.db.models.city_model import CityModel
 from app.db.models.customer_model import CustomerModel
 from app.db.models.driver_profile_model import DriverProfileModel
@@ -11,6 +12,7 @@ from app.db.models.user_station_model import UserDispatcherStationModel, UserDri
 
 __all__ = [
     "AdditionalMessageTemplateModel",
+    "AddressModel",
     "CityModel",
     "CustomerModel",
     "DriverProfileModel",

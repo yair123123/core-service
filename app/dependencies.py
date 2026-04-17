@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db.session import get_db_session
+from app.repositories.address_repository import AddressRepository
 from app.repositories.customer_repository import CustomerRepository
 from app.repositories.driver_repository import DriverRepository
 from app.repositories.reference_data_repository import ReferenceDataRepository
@@ -11,12 +12,14 @@ from app.repositories.ride_event_repository import RideEventRepository
 from app.repositories.ride_repository import RideRepository
 from app.repositories.station_repository import StationRepository
 from app.repositories.user_repository import UserRepository
+from app.services.address_service import AddressService
 from app.services.auth_service import AuthService
 from app.services.call_routing_service import CallRoutingService
 from app.services.dispatcher_ride_service import DispatcherRideService
 from app.services.dispatch_round_orchestration_service import DispatchRoundOrchestrationService
 from app.services.dispatch_round_policy_service import DispatchRoundPolicyService
 from app.services.dispatch_socket_client import DispatchSocketClient
+from app.services.geocoding_client import GeocodingClient
 from app.services.phone_normalizer import PhoneNormalizer
 from app.services.pricing_service import PricingService
 from app.services.ride_cancellation_service import RideCancellationService
@@ -32,6 +35,10 @@ from app.services.speech_processing_adapter import SpeechProcessingAdapter
 from app.domain.schemas.auth import CurrentUserResponse
 
 http_bearer = HTTPBearer(auto_error=False)
+
+
+def get_address_repository(db: Session = Depends(get_db_session)) -> AddressRepository:
+    return AddressRepository(db)
 
 
 def get_customer_repository(db: Session = Depends(get_db_session)) -> CustomerRepository:
@@ -62,8 +69,19 @@ def get_reference_data_repository(db: Session = Depends(get_db_session)) -> Refe
     return ReferenceDataRepository(db)
 
 
+def get_geocoding_client(settings: Settings = Depends(get_settings)) -> GeocodingClient:
+    return GeocodingClient(base_url=settings.geocoding_base_url, timeout_seconds=settings.geocoding_timeout_seconds)
+
+
 def get_phone_normalizer() -> PhoneNormalizer:
     return PhoneNormalizer()
+
+
+def get_address_service(
+    geocoding_client: GeocodingClient = Depends(get_geocoding_client),
+    address_repository: AddressRepository = Depends(get_address_repository),
+) -> AddressService:
+    return AddressService(geocoding_client=geocoding_client, address_repository=address_repository)
 
 
 def get_speech_processing_adapter() -> SpeechProcessingAdapter:
@@ -132,6 +150,7 @@ def get_ride_order_service(
     speech_processing_adapter: SpeechProcessingAdapter = Depends(get_speech_processing_adapter),
     pricing_service: PricingService = Depends(get_pricing_service),
     phone_command_builder: PhoneRideCommandBuilder = Depends(get_phone_ride_command_builder),
+    address_service: AddressService = Depends(get_address_service),
     ride_creation_service: RideCreationService = Depends(get_ride_creation_service),
 ) -> RideOrderService:
     return RideOrderService(
@@ -141,6 +160,7 @@ def get_ride_order_service(
         speech_processing_adapter,
         pricing_service,
         phone_command_builder,
+        address_service,
         ride_creation_service,
     )
 
@@ -225,9 +245,16 @@ def get_dispatcher_ride_service(
     customer_repository: CustomerRepository = Depends(get_customer_repository),
     phone_normalizer: PhoneNormalizer = Depends(get_phone_normalizer),
     dispatcher_command_builder: DispatcherRideCommandBuilder = Depends(get_dispatcher_ride_command_builder),
+    address_service: AddressService = Depends(get_address_service),
     ride_creation_service: RideCreationService = Depends(get_ride_creation_service),
 ) -> DispatcherRideService:
-    return DispatcherRideService(customer_repository, phone_normalizer, dispatcher_command_builder, ride_creation_service)
+    return DispatcherRideService(
+        customer_repository,
+        phone_normalizer,
+        dispatcher_command_builder,
+        address_service,
+        ride_creation_service,
+    )
 
 
 def verify_internal_service_secret(

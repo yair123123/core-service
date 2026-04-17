@@ -23,6 +23,8 @@ uvicorn app.main:app --reload
 - `CORE_SERVICE_DATABASE_URL` (default `sqlite:///./core_service.db`)
 - `CORE_SERVICE_FIXED_CITY_RIDE_PRICE` (default `25.0`)
 - `CORE_SERVICE_ENVIRONMENT` (default `dev`)
+- `CORE_SERVICE_GEOCODING_BASE_URL` (default `http://geocoding-service:8000`)
+- `CORE_SERVICE_GEOCODING_TIMEOUT_SECONDS` (default `5.0`)
 
 ## Tests
 ```bash

@@ -4,8 +4,8 @@ from decimal import Decimal
 from app.domain.schemas.auth import CurrentUserResponse
 from app.domain.schemas.ride_order_processing import ProcessCallOrderRequest
 from app.domain.schemas.ride_request import CreateRideFromDispatcherRequest
-from app.services.speech_processing_adapter import ProcessedOrderSpeech
 from app.services.ride_creation_service import CreateRideCommand
+from app.services.speech_processing_adapter import ProcessedOrderSpeech
 
 
 @dataclass(slots=True)
@@ -14,25 +14,39 @@ class CreateRideFromPhoneInput:
     customer_id: int
     speech: ProcessedOrderSpeech
     price: Decimal | float | None
+    origin_address_id: int
+    destination_address_id: int
+
+
+@dataclass(slots=True)
+class CreateRideFromDispatcherInput:
+    payload: CreateRideFromDispatcherRequest
+    current_user: CurrentUserResponse
+    customer_id: int
+    origin_address_id: int
+    destination_address_id: int
 
 
 class DispatcherRideCommandBuilder:
-    def build(self, payload: CreateRideFromDispatcherRequest, current_user: CurrentUserResponse, customer_id: int) -> CreateRideCommand:
+    def build(self, payload: CreateRideFromDispatcherInput) -> CreateRideCommand:
+        request = payload.payload
         return CreateRideCommand(
-            customer_id=customer_id,
-            origin_text=payload.origin_text,
-            destination_text=payload.destination_text,
-            notes_text=payload.notes_text,
-            origin_city=payload.origin_city,
-            origin_street=payload.origin_street,
-            origin_house_number=payload.origin_house_number,
-            destination_city=payload.destination_city,
-            destination_street=payload.destination_street,
-            destination_house_number=payload.destination_house_number,
-            price_amount=payload.price_amount,
-            station_id=payload.station_id,
-            dispatcher_id=current_user.id,
-            metadata={"source": "dispatcher", "createdByUserId": current_user.id},
+            customer_id=payload.customer_id,
+            origin_text=request.origin_text,
+            destination_text=request.destination_text,
+            notes_text=request.notes_text,
+            origin_city=request.origin_city,
+            origin_street=request.origin_street,
+            origin_house_number=request.origin_house_number,
+            destination_city=request.destination_city,
+            destination_street=request.destination_street,
+            destination_house_number=request.destination_house_number,
+            origin_address_id=payload.origin_address_id,
+            destination_address_id=payload.destination_address_id,
+            price_amount=request.price_amount,
+            station_id=request.station_id,
+            dispatcher_id=payload.current_user.id,
+            metadata={"source": "dispatcher", "createdByUserId": payload.current_user.id},
         )
 
 
@@ -50,6 +64,8 @@ class PhoneRideCommandBuilder:
             destination_city=speech.destination_city,
             destination_street=speech.destination_street,
             destination_house_number=speech.destination_house_number,
+            origin_address_id=payload.origin_address_id,
+            destination_address_id=payload.destination_address_id,
             price_amount=payload.price,
             metadata={"source": "phone", "callSessionId": payload.payload.call_session_id},
         )

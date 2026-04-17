@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     auth_jwt_algorithm: str = "HS256"
     auth_access_token_expires_in_seconds: int = Field(default=3600, gt=0)
     dispatch_socket_base_url: str = "http://dispatch-socket-service:8000"
+    geocoding_base_url: str = "http://geocoding-service:8000"
+    geocoding_timeout_seconds: float = Field(default=5.0, gt=0)
     internal_service_secret: str = "change-me-internal"
     dispatch_round_1_radius_km: float = Field(default=2.0, gt=0)
     dispatch_round_1_timeout_seconds: int = Field(default=15, gt=0)
