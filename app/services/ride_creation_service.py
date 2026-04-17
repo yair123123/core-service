@@ -5,6 +5,7 @@ from typing import Any
 from app.domain.enums.ride_status import RideStatus
 from app.repositories.ride_event_repository import RideEventRepository
 from app.repositories.ride_repository import RideRepository
+from app.services.dispatch_round_orchestration_service import DispatchRoundOrchestrationService
 
 
 @dataclass(slots=True)
@@ -26,9 +27,15 @@ class CreateRideCommand:
 
 
 class RideCreationService:
-    def __init__(self, ride_repository: RideRepository, ride_event_repository: RideEventRepository) -> None:
+    def __init__(
+        self,
+        ride_repository: RideRepository,
+        ride_event_repository: RideEventRepository,
+        dispatch_round_orchestration_service: DispatchRoundOrchestrationService,
+    ) -> None:
         self.ride_repository = ride_repository
         self.ride_event_repository = ride_event_repository
+        self.dispatch_round_orchestration_service = dispatch_round_orchestration_service
 
     def create_ride(self, command: CreateRideCommand):
         ride = self.ride_repository.create_ride(
@@ -48,4 +55,5 @@ class RideCreationService:
             dispatcher_id=command.dispatcher_id,
         )
         self.ride_event_repository.add_event(ride.id, "RIDE_CREATED", command.metadata or {})
+        self.dispatch_round_orchestration_service.on_ride_created(ride.id)
         return ride

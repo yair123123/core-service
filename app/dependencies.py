@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,9 @@ from app.repositories.user_repository import UserRepository
 from app.services.auth_service import AuthService
 from app.services.call_routing_service import CallRoutingService
 from app.services.dispatcher_ride_service import DispatcherRideService
+from app.services.dispatch_round_orchestration_service import DispatchRoundOrchestrationService
+from app.services.dispatch_round_policy_service import DispatchRoundPolicyService
+from app.services.dispatch_socket_client import DispatchSocketClient
 from app.services.phone_normalizer import PhoneNormalizer
 from app.services.pricing_service import PricingService
 from app.services.ride_cancellation_service import RideCancellationService
@@ -79,11 +82,39 @@ def get_phone_ride_command_builder() -> PhoneRideCommandBuilder:
     return PhoneRideCommandBuilder()
 
 
+def get_dispatch_socket_client(settings: Settings = Depends(get_settings)) -> DispatchSocketClient:
+    return DispatchSocketClient(
+        base_url=settings.dispatch_socket_base_url,
+        internal_service_secret=settings.internal_service_secret,
+    )
+
+
+def get_dispatch_round_policy_service(settings: Settings = Depends(get_settings)) -> DispatchRoundPolicyService:
+    return DispatchRoundPolicyService(settings)
+
+
+def get_dispatch_round_orchestration_service(
+    ride_repository: RideRepository = Depends(get_ride_repository),
+    ride_event_repository: RideEventRepository = Depends(get_ride_event_repository),
+    policy_service: DispatchRoundPolicyService = Depends(get_dispatch_round_policy_service),
+    dispatch_socket_client: DispatchSocketClient = Depends(get_dispatch_socket_client),
+) -> DispatchRoundOrchestrationService:
+    return DispatchRoundOrchestrationService(
+        ride_repository=ride_repository,
+        ride_event_repository=ride_event_repository,
+        policy_service=policy_service,
+        dispatch_socket_client=dispatch_socket_client,
+    )
+
+
 def get_ride_creation_service(
     ride_repository: RideRepository = Depends(get_ride_repository),
     ride_event_repository: RideEventRepository = Depends(get_ride_event_repository),
+    dispatch_round_orchestration_service: DispatchRoundOrchestrationService = Depends(
+        get_dispatch_round_orchestration_service
+    ),
 ) -> RideCreationService:
-    return RideCreationService(ride_repository, ride_event_repository)
+    return RideCreationService(ride_repository, ride_event_repository, dispatch_round_orchestration_service)
 
 
 def get_call_routing_service(
@@ -197,3 +228,11 @@ def get_dispatcher_ride_service(
     ride_creation_service: RideCreationService = Depends(get_ride_creation_service),
 ) -> DispatcherRideService:
     return DispatcherRideService(customer_repository, phone_normalizer, dispatcher_command_builder, ride_creation_service)
+
+
+def verify_internal_service_secret(
+    x_internal_secret: str | None = Header(default=None, alias="X-Internal-Secret"),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    if x_internal_secret != settings.internal_service_secret:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid internal secret")
