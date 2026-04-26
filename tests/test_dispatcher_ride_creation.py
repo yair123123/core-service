@@ -5,26 +5,33 @@ import httpx
 from app.config import get_settings
 from app.db.models.address_model import AddressModel
 from app.db.models.customer_model import CustomerModel
+from app.db.models.dispatcher_profile_model import DispatcherProfileModel
 from app.db.models.ride_event_model import RideEventModel
 from app.db.models.ride_model import RideModel
 from app.db.models.user_model import UserModel
+from app.db.models.user_station_model import DispatcherProfileStationModel
 from app.domain.enums.ride_status import RideStatus
 from app.services.security import create_access_token, hash_password
 
 
 def _create_user(db_session, *, is_dispatcher: bool, dispatcher_stations: list[int]) -> UserModel:
+    station_key = "_".join(map(str, dispatcher_stations or [0]))
     user = UserModel(
-        username=f"user_{is_dispatcher}_{'_'.join(map(str, dispatcher_stations or [0]))}",
+        username=f"user_{is_dispatcher}_{station_key}",
+        phone_number=f"05{sum(dispatcher_stations or [0]):08d}"[:10],
         password_hash=hash_password("secret123"),
         is_active=True,
-        gender="male",
-        rating=4.8,
-        can_receive_rides_for_non_payment=True,
-        is_dispatcher=is_dispatcher,
-        dispatcher_stations_id=dispatcher_stations,
-        driver_stations_id=[],
     )
     db_session.add(user)
+    db_session.flush()
+    if is_dispatcher:
+        dispatcher_profile = DispatcherProfileModel(user_id=user.id, display_name="Dispatcher Test")
+        db_session.add(dispatcher_profile)
+        db_session.flush()
+        for station_id in dispatcher_stations:
+            db_session.add(
+                DispatcherProfileStationModel(dispatcher_profile_id=dispatcher_profile.id, station_id=station_id)
+            )
     db_session.commit()
     db_session.refresh(user)
     return user

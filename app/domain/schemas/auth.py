@@ -19,6 +19,10 @@ class CurrentUserResponse(BaseModel):
 
     id: int
     username: str
+    phone_number: str | None = Field(default=None, alias="phoneNumber")
+    driver_profile_id: int | None = Field(default=None, alias="driverProfileId")
+    dispatcher_profile_id: int | None = Field(default=None, alias="dispatcherProfileId")
+    station_owner_profile_id: int | None = Field(default=None, alias="stationOwnerProfileId")
     gender: str | None = None
     rating: float | None = None
     can_receive_rides_for_non_payment: bool = Field(alias="canReceiveRidesForNonPayment")

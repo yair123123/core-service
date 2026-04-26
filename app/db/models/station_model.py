@@ -18,6 +18,7 @@ class StationModel(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    dispatcher_user_links = relationship("UserDispatcherStationModel", back_populates="station")
-    driver_user_links = relationship("UserDriverStationModel", back_populates="station")
+    dispatcher_profile_links = relationship("DispatcherProfileStationModel", back_populates="station")
+    driver_profile_links = relationship("DriverProfileStationModel", back_populates="station")
+    station_owner_profile_links = relationship("StationOwnerProfileStationModel", back_populates="station")
     rides = relationship("RideModel", back_populates="station")

@@ -5,8 +5,11 @@ from pydantic import BaseModel
 
 class DriverRead(BaseModel):
     id: int
-    phone_number: str
-    name: str | None
-    is_active: bool
+    user_id: int
+    phone_number: str | None
+    display_name: str | None
+    gender: str | None
+    rating: float | None
+    can_receive_rides_for_non_payment: bool
     created_at: datetime
     updated_at: datetime

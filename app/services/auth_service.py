@@ -32,21 +32,28 @@ class AuthService:
         )
 
     def to_current_user_response(self, user: UserModel) -> CurrentUserResponse:
+        dispatcher_profile = user.dispatcher_profile
+        driver_profile = user.driver_profile
+        station_owner_profile = user.station_owner_profile
+
         dispatcher_station_ids = (
-            [link.station_id for link in user.dispatcher_station_links]
-            if user.dispatcher_station_links
-            else user.dispatcher_stations_id
+            [link.station_id for link in dispatcher_profile.station_links] if dispatcher_profile is not None else []
         )
-        driver_station_ids = (
-            [link.station_id for link in user.driver_station_links] if user.driver_station_links else user.driver_stations_id
-        )
+        driver_station_ids = [link.station_id for link in driver_profile.station_links] if driver_profile is not None else []
+
         return CurrentUserResponse(
             id=user.id,
             username=user.username,
-            gender=user.gender,
-            rating=user.rating,
-            canReceiveRidesForNonPayment=user.can_receive_rides_for_non_payment,
-            isDispatcher=user.is_dispatcher,
+            phoneNumber=user.phone_number,
+            driverProfileId=driver_profile.id if driver_profile is not None else None,
+            dispatcherProfileId=dispatcher_profile.id if dispatcher_profile is not None else None,
+            stationOwnerProfileId=station_owner_profile.id if station_owner_profile is not None else None,
+            gender=driver_profile.gender if driver_profile is not None else None,
+            rating=driver_profile.rating if driver_profile is not None else None,
+            canReceiveRidesForNonPayment=(
+                driver_profile.can_receive_rides_for_non_payment if driver_profile is not None else False
+            ),
+            isDispatcher=dispatcher_profile is not None,
             dispatcherStationsId=dispatcher_station_ids,
             driverStationsId=driver_station_ids,
         )

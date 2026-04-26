@@ -1,7 +1,9 @@
 from app.config import get_settings
 from app.db.models.customer_model import CustomerModel
+from app.db.models.driver_profile_model import DriverProfileModel
 from app.db.models.ride_model import RideModel
 from app.db.models.user_model import UserModel
+from app.db.models.user_station_model import DriverProfileStationModel
 from app.domain.enums.ride_status import RideStatus
 from app.services.security import create_access_token, hash_password
 
@@ -9,16 +11,23 @@ from app.services.security import create_access_token, hash_password
 def _create_user(db_session, *, active: bool = True, driver_stations: list[int] | None = None) -> UserModel:
     user = UserModel(
         username="driver_user",
+        phone_number="0502223344",
         password_hash=hash_password("secret123"),
         is_active=active,
+    )
+    db_session.add(user)
+    db_session.flush()
+    driver_profile = DriverProfileModel(
+        user_id=user.id,
+        display_name="Driver Test",
         gender="male",
         rating=4.9,
         can_receive_rides_for_non_payment=True,
-        is_dispatcher=False,
-        dispatcher_stations_id=[],
-        driver_stations_id=driver_stations or [],
     )
-    db_session.add(user)
+    db_session.add(driver_profile)
+    db_session.flush()
+    for station_id in driver_stations or []:
+        db_session.add(DriverProfileStationModel(driver_profile_id=driver_profile.id, station_id=station_id))
     db_session.commit()
     db_session.refresh(user)
     return user

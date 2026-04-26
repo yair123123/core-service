@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models.driver_profile_model import DriverProfileModel
+from app.db.models.user_model import UserModel
 
 
 class DriverRepository:
@@ -9,7 +10,7 @@ class DriverRepository:
         self.db = db
 
     def get_by_phone(self, phone_number: str) -> DriverProfileModel | None:
-        stmt = select(DriverProfileModel).where(DriverProfileModel.phone_number == phone_number)
+        stmt = select(DriverProfileModel).join(DriverProfileModel.user).where(UserModel.phone_number == phone_number)
         return self.db.scalar(stmt)
 
     def get_by_id(self, driver_id: int) -> DriverProfileModel | None:

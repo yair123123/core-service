@@ -25,7 +25,7 @@ class DispatcherRideService:
         self.ride_creation_service = ride_creation_service
 
     def create_ride(self, payload: CreateRideFromDispatcherRequest, current_user: CurrentUserResponse):
-        if not current_user.is_dispatcher:
+        if current_user.dispatcher_profile_id is None:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dispatcher role is required")
         if payload.station_id not in current_user.dispatcher_stations_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dispatcher cannot create ride for this station")

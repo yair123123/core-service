@@ -8,6 +8,9 @@ class RideService:
         self.ride_repository = ride_repository
 
     def get_my_driver_rides(self, current_user: CurrentUserResponse) -> list[RideRead]:
+        if current_user.driver_profile_id is None:
+            return []
+
         station_ids = current_user.driver_stations_id
         if not station_ids:
             return []

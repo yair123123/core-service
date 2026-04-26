@@ -5,14 +5,20 @@ from decimal import Decimal
 
 from sqlalchemy import select
 
-from app.db.session import SessionLocal
 from app.db.models.customer_model import CustomerModel
+from app.db.models.dispatcher_profile_model import DispatcherProfileModel
 from app.db.models.driver_profile_model import DriverProfileModel
 from app.db.models.ride_event_model import RideEventModel
 from app.db.models.ride_model import RideModel
 from app.db.models.station_model import StationModel
+from app.db.models.station_owner_profile_model import StationOwnerProfileModel
 from app.db.models.user_model import UserModel
-from app.db.models.user_station_model import UserDispatcherStationModel, UserDriverStationModel
+from app.db.models.user_station_model import (
+    DispatcherProfileStationModel,
+    DriverProfileStationModel,
+    StationOwnerProfileStationModel,
+)
+from app.db.session import SessionLocal
 from app.domain.enums.ride_status import RideStatus
 from app.services.security import hash_password
 
@@ -39,72 +45,111 @@ def _get_or_create_customer(session, phone_number: str) -> CustomerModel:
     return customer
 
 
-def _get_or_create_driver(session, phone_number: str, name: str, is_active: bool = True) -> DriverProfileModel:
-    driver = session.execute(select(DriverProfileModel).where(DriverProfileModel.phone_number == phone_number)).scalar_one_or_none()
-    if driver is None:
-        driver = DriverProfileModel(phone_number=phone_number, name=name, is_active=is_active)
-        session.add(driver)
-        session.flush()
-        return driver
-
-    driver.name = name
-    driver.is_active = is_active
-    session.flush()
-    return driver
-
-
-def _get_or_create_user(
-    session,
-    *,
-    username: str,
-    password: str,
-    gender: str,
-    rating: float,
-    can_receive_rides_for_non_payment: bool,
-    is_dispatcher: bool,
-    dispatcher_stations_id: list[int],
-    driver_stations_id: list[int],
-) -> UserModel:
+def _get_or_create_user(session, *, username: str, phone_number: str | None, password: str, is_active: bool = True) -> UserModel:
     user = session.execute(select(UserModel).where(UserModel.username == username)).scalar_one_or_none()
     if user is None:
         user = UserModel(
             username=username,
+            phone_number=phone_number,
             password_hash=hash_password(password),
-            is_active=True,
-            gender=gender,
-            rating=rating,
-            can_receive_rides_for_non_payment=can_receive_rides_for_non_payment,
-            is_dispatcher=is_dispatcher,
-            dispatcher_stations_id=dispatcher_stations_id,
-            driver_stations_id=driver_stations_id,
+            is_active=is_active,
         )
         session.add(user)
         session.flush()
         return user
 
+    user.phone_number = phone_number
     user.password_hash = hash_password(password)
-    user.is_active = True
-    user.gender = gender
-    user.rating = rating
-    user.can_receive_rides_for_non_payment = can_receive_rides_for_non_payment
-    user.is_dispatcher = is_dispatcher
-    user.dispatcher_stations_id = dispatcher_stations_id
-    user.driver_stations_id = driver_stations_id
+    user.is_active = is_active
     session.flush()
     return user
 
 
-def _ensure_dispatcher_station_link(session, user_id: int, station_id: int) -> None:
-    existing = session.get(UserDispatcherStationModel, {"user_id": user_id, "station_id": station_id})
+def _get_or_create_driver_profile(
+    session,
+    *,
+    user: UserModel,
+    display_name: str,
+    gender: str | None,
+    rating: float | None,
+    can_receive_rides_for_non_payment: bool,
+) -> DriverProfileModel:
+    profile = session.execute(select(DriverProfileModel).where(DriverProfileModel.user_id == user.id)).scalar_one_or_none()
+    if profile is None:
+        profile = DriverProfileModel(
+            user_id=user.id,
+            display_name=display_name,
+            gender=gender,
+            rating=rating,
+            can_receive_rides_for_non_payment=can_receive_rides_for_non_payment,
+        )
+        session.add(profile)
+        session.flush()
+        return profile
+
+    profile.display_name = display_name
+    profile.gender = gender
+    profile.rating = rating
+    profile.can_receive_rides_for_non_payment = can_receive_rides_for_non_payment
+    session.flush()
+    return profile
+
+
+def _get_or_create_dispatcher_profile(session, *, user: UserModel, display_name: str) -> DispatcherProfileModel:
+    profile = session.execute(select(DispatcherProfileModel).where(DispatcherProfileModel.user_id == user.id)).scalar_one_or_none()
+    if profile is None:
+        profile = DispatcherProfileModel(user_id=user.id, display_name=display_name)
+        session.add(profile)
+        session.flush()
+        return profile
+
+    profile.display_name = display_name
+    session.flush()
+    return profile
+
+
+def _get_or_create_station_owner_profile(session, *, user: UserModel, display_name: str) -> StationOwnerProfileModel:
+    profile = session.execute(select(StationOwnerProfileModel).where(StationOwnerProfileModel.user_id == user.id)).scalar_one_or_none()
+    if profile is None:
+        profile = StationOwnerProfileModel(user_id=user.id, display_name=display_name)
+        session.add(profile)
+        session.flush()
+        return profile
+
+    profile.display_name = display_name
+    session.flush()
+    return profile
+
+
+def _ensure_dispatcher_station_link(session, dispatcher_profile_id: int, station_id: int) -> None:
+    existing = session.get(
+        DispatcherProfileStationModel,
+        {"dispatcher_profile_id": dispatcher_profile_id, "station_id": station_id},
+    )
     if existing is None:
-        session.add(UserDispatcherStationModel(user_id=user_id, station_id=station_id))
+        session.add(DispatcherProfileStationModel(dispatcher_profile_id=dispatcher_profile_id, station_id=station_id))
         session.flush()
 
 
-def _ensure_driver_station_link(session, user_id: int, station_id: int) -> None:
-    existing = session.get(UserDriverStationModel, {"user_id": user_id, "station_id": station_id})
+def _ensure_driver_station_link(session, driver_profile_id: int, station_id: int) -> None:
+    existing = session.get(
+        DriverProfileStationModel,
+        {"driver_profile_id": driver_profile_id, "station_id": station_id},
+    )
     if existing is None:
-        session.add(UserDriverStationModel(user_id=user_id, station_id=station_id))
+        session.add(DriverProfileStationModel(driver_profile_id=driver_profile_id, station_id=station_id))
+        session.flush()
+
+
+def _ensure_station_owner_station_link(session, station_owner_profile_id: int, station_id: int) -> None:
+    existing = session.get(
+        StationOwnerProfileStationModel,
+        {"station_owner_profile_id": station_owner_profile_id, "station_id": station_id},
+    )
+    if existing is None:
+        session.add(
+            StationOwnerProfileStationModel(station_owner_profile_id=station_owner_profile_id, station_id=station_id)
+        )
         session.flush()
 
 
@@ -113,6 +158,7 @@ def _get_or_create_ride(
     *,
     customer_id: int,
     driver_id: int | None,
+    dispatcher_id: int | None,
     station_id: int | None,
     origin_text: str,
     destination_text: str,
@@ -135,13 +181,13 @@ def _get_or_create_ride(
             RideModel.customer_id == customer_id,
             RideModel.origin_text == origin_text,
             RideModel.destination_text == destination_text,
-            RideModel.status == status,
         )
     ).scalar_one_or_none()
     if ride is None:
         ride = RideModel(
             customer_id=customer_id,
             driver_id=driver_id,
+            dispatcher_id=dispatcher_id,
             station_id=station_id,
             origin_text=origin_text,
             destination_text=destination_text,
@@ -164,6 +210,7 @@ def _get_or_create_ride(
         return ride
 
     ride.driver_id = driver_id
+    ride.dispatcher_id = dispatcher_id
     ride.station_id = station_id
     ride.notes_text = notes_text
     ride.origin_city = origin_city
@@ -173,6 +220,7 @@ def _get_or_create_ride(
     ride.destination_street = destination_street
     ride.destination_house_number = destination_house_number
     ride.price_amount = price_amount
+    ride.status = status
     ride.assigned_at = assigned_at
     ride.confirmed_at = confirmed_at
     ride.canceled_at = canceled_at
@@ -193,6 +241,10 @@ def _ensure_ride_event(session, ride_id: int, event_type: str, payload_json: dic
     session.flush()
 
 
+def assigned_at_iso(value: datetime | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
 def seed() -> None:
     now = datetime.now(UTC)
 
@@ -205,56 +257,81 @@ def seed() -> None:
         customer_2 = _get_or_create_customer(session, "0500000002")
         customer_3 = _get_or_create_customer(session, "0500000003")
 
-        driver_1 = _get_or_create_driver(session, "0520000001", "David Cohen", is_active=True)
-        driver_2 = _get_or_create_driver(session, "0520000002", "Moshe Levi", is_active=True)
-        driver_3 = _get_or_create_driver(session, "0520000003", "Yossi Mizrahi", is_active=False)
-
         dispatcher_user = _get_or_create_user(
             session,
             username="dispatcher_demo",
+            phone_number="0521000001",
             password="secret123",
-            gender="male",
-            rating=4.9,
-            can_receive_rides_for_non_payment=True,
-            is_dispatcher=True,
-            dispatcher_stations_id=[station_tel_aviv.id, station_haifa.id],
-            driver_stations_id=[],
         )
+        dispatcher_profile = _get_or_create_dispatcher_profile(
+            session,
+            user=dispatcher_user,
+            display_name="Dana Dispatch",
+        )
+
         driver_user = _get_or_create_user(
             session,
             username="driver_demo",
+            phone_number="0521000002",
             password="secret123",
-            gender="female",
+        )
+        driver_profile = _get_or_create_driver_profile(
+            session,
+            user=driver_user,
+            display_name="David Cohen",
+            gender="male",
             rating=4.7,
             can_receive_rides_for_non_payment=False,
-            is_dispatcher=False,
-            dispatcher_stations_id=[],
-            driver_stations_id=[station_tel_aviv.id, station_jerusalem.id],
         )
+
         hybrid_user = _get_or_create_user(
             session,
             username="hybrid_demo",
+            phone_number="0521000003",
             password="secret123",
+        )
+        hybrid_driver_profile = _get_or_create_driver_profile(
+            session,
+            user=hybrid_user,
+            display_name="Yossi Mizrahi",
             gender="male",
             rating=4.5,
             can_receive_rides_for_non_payment=True,
-            is_dispatcher=True,
-            dispatcher_stations_id=[station_jerusalem.id],
-            driver_stations_id=[station_haifa.id],
+        )
+        hybrid_dispatcher_profile = _get_or_create_dispatcher_profile(
+            session,
+            user=hybrid_user,
+            display_name="Yossi Dispatch",
         )
 
-        _ensure_dispatcher_station_link(session, dispatcher_user.id, station_tel_aviv.id)
-        _ensure_dispatcher_station_link(session, dispatcher_user.id, station_haifa.id)
-        _ensure_dispatcher_station_link(session, hybrid_user.id, station_jerusalem.id)
+        owner_user = _get_or_create_user(
+            session,
+            username="owner_demo",
+            phone_number="0521000004",
+            password="secret123",
+        )
+        owner_profile = _get_or_create_station_owner_profile(
+            session,
+            user=owner_user,
+            display_name="Rachel Owner",
+        )
 
-        _ensure_driver_station_link(session, driver_user.id, station_tel_aviv.id)
-        _ensure_driver_station_link(session, driver_user.id, station_jerusalem.id)
-        _ensure_driver_station_link(session, hybrid_user.id, station_haifa.id)
+        _ensure_dispatcher_station_link(session, dispatcher_profile.id, station_tel_aviv.id)
+        _ensure_dispatcher_station_link(session, dispatcher_profile.id, station_haifa.id)
+        _ensure_dispatcher_station_link(session, hybrid_dispatcher_profile.id, station_jerusalem.id)
+
+        _ensure_driver_station_link(session, driver_profile.id, station_tel_aviv.id)
+        _ensure_driver_station_link(session, driver_profile.id, station_jerusalem.id)
+        _ensure_driver_station_link(session, hybrid_driver_profile.id, station_haifa.id)
+
+        _ensure_station_owner_station_link(session, owner_profile.id, station_tel_aviv.id)
+        _ensure_station_owner_station_link(session, owner_profile.id, station_haifa.id)
 
         ride_searching = _get_or_create_ride(
             session,
             customer_id=customer_1.id,
             driver_id=None,
+            dispatcher_id=dispatcher_user.id,
             station_id=station_tel_aviv.id,
             origin_text="Dizengoff 100, Tel Aviv",
             destination_text="Ben Yehuda 50, Tel Aviv",
@@ -271,7 +348,8 @@ def seed() -> None:
         ride_assigned = _get_or_create_ride(
             session,
             customer_id=customer_2.id,
-            driver_id=driver_1.id,
+            driver_id=driver_profile.id,
+            dispatcher_id=dispatcher_user.id,
             station_id=station_haifa.id,
             origin_text="Herzl 12, Haifa",
             destination_text="Haneviim 5, Haifa",
@@ -290,7 +368,8 @@ def seed() -> None:
         ride_completed = _get_or_create_ride(
             session,
             customer_id=customer_3.id,
-            driver_id=driver_2.id,
+            driver_id=hybrid_driver_profile.id,
+            dispatcher_id=hybrid_user.id,
             station_id=station_jerusalem.id,
             origin_text="Jaffa 1, Jerusalem",
             destination_text="King George 22, Jerusalem",
@@ -310,7 +389,8 @@ def seed() -> None:
         ride_canceled = _get_or_create_ride(
             session,
             customer_id=customer_1.id,
-            driver_id=driver_3.id,
+            driver_id=hybrid_driver_profile.id,
+            dispatcher_id=hybrid_user.id,
             station_id=station_tel_aviv.id,
             origin_text="Allenby 44, Tel Aviv",
             destination_text="Rothschild 10, Tel Aviv",
@@ -331,40 +411,44 @@ def seed() -> None:
         _ensure_ride_event(
             session,
             ride_searching.id,
-            "ride_created",
+            "RIDE_CREATED",
             {
                 "status": RideStatus.SEARCHING_DRIVER.value,
                 "customerPhone": customer_1.phone_number,
                 "stationId": station_tel_aviv.id,
+                "createdByUserId": dispatcher_user.id,
             },
         )
         _ensure_ride_event(
             session,
             ride_assigned.id,
-            "driver_assigned",
+            "DRIVER_ASSIGNED",
             {
                 "status": RideStatus.DRIVER_ASSIGNED.value,
-                "driverPhone": driver_1.phone_number,
+                "driverProfileId": driver_profile.id,
+                "driverPhone": driver_user.phone_number,
                 "assignedAt": assigned_at_iso(ride_assigned.assigned_at),
             },
         )
         _ensure_ride_event(
             session,
             ride_completed.id,
-            "ride_completed",
+            "RIDE_COMPLETED",
             {
                 "status": RideStatus.COMPLETED.value,
-                "driverPhone": driver_2.phone_number,
+                "driverProfileId": hybrid_driver_profile.id,
+                "driverPhone": hybrid_user.phone_number,
                 "completedAt": assigned_at_iso(ride_completed.completed_at),
             },
         )
         _ensure_ride_event(
             session,
             ride_canceled.id,
-            "ride_canceled",
+            "RIDE_CANCELED",
             {
                 "status": RideStatus.CANCELED.value,
-                "driverPhone": driver_3.phone_number,
+                "driverProfileId": hybrid_driver_profile.id,
+                "driverPhone": hybrid_user.phone_number,
                 "canceledAt": assigned_at_iso(ride_canceled.canceled_at),
             },
         )
@@ -372,13 +456,9 @@ def seed() -> None:
         session.commit()
 
         print("Seed completed successfully.")
-        print("Users: dispatcher_demo / driver_demo / hybrid_demo")
+        print("Users: dispatcher_demo / driver_demo / hybrid_demo / owner_demo")
         print("Password for all users: secret123")
-        print("Stations, customers, drivers, rides, ride events and station links were seeded.")
-
-
-def assigned_at_iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value is not None else None
+        print("Stations, customers, role profiles, station links, rides, and ride events were seeded.")
 
 
 if __name__ == "__main__":

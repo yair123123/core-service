@@ -1,23 +1,28 @@
 from app.config import get_settings
+from app.db.models.dispatcher_profile_model import DispatcherProfileModel
+from app.db.models.driver_profile_model import DriverProfileModel
 from app.db.models.station_model import StationModel
 from app.db.models.user_model import UserModel
-from app.db.models.user_station_model import UserDispatcherStationModel, UserDriverStationModel
+from app.db.models.user_station_model import DispatcherProfileStationModel, DriverProfileStationModel
 from app.services.security import create_access_token, hash_password
 
 
 def _create_user(db_session) -> UserModel:
     user = UserModel(
         username="dispatcher1",
+        phone_number="0501112233",
         password_hash=hash_password("secret123"),
         is_active=True,
+    )
+    dispatcher_profile = DispatcherProfileModel(user=user, display_name="Dispatcher One")
+    driver_profile = DriverProfileModel(
+        user=user,
+        display_name="Driver One",
         gender="male",
         rating=4.9,
         can_receive_rides_for_non_payment=True,
-        is_dispatcher=True,
-        dispatcher_stations_id=[1, 2],
-        driver_stations_id=[7],
     )
-    db_session.add(user)
+    db_session.add_all([user, dispatcher_profile, driver_profile])
     db_session.commit()
     db_session.refresh(user)
     return user
@@ -51,12 +56,16 @@ def test_auth_me_success(client, db_session):
     assert response.json() == {
         "id": user.id,
         "username": "dispatcher1",
+        "phoneNumber": "0501112233",
+        "driverProfileId": user.driver_profile.id,
+        "dispatcherProfileId": user.dispatcher_profile.id,
+        "stationOwnerProfileId": None,
         "gender": "male",
         "rating": 4.9,
         "canReceiveRidesForNonPayment": True,
         "isDispatcher": True,
-        "dispatcherStationsId": [1, 2],
-        "driverStationsId": [7],
+        "dispatcherStationsId": [],
+        "driverStationsId": [],
     }
 
 
@@ -87,8 +96,8 @@ def test_auth_me_prefers_foreign_key_station_links(client, db_session):
     db_session.flush()
     db_session.add_all(
         [
-            UserDispatcherStationModel(user_id=user.id, station_id=station_1.id),
-            UserDriverStationModel(user_id=user.id, station_id=station_2.id),
+            DispatcherProfileStationModel(dispatcher_profile_id=user.dispatcher_profile.id, station_id=station_1.id),
+            DriverProfileStationModel(driver_profile_id=user.driver_profile.id, station_id=station_2.id),
         ]
     )
     db_session.commit()

@@ -51,11 +51,17 @@ class CallRoutingService:
         ride = open_rides[0]
         if ride.status == RideStatus.SEARCHING_DRIVER:
             return CallRoutingResolveResponse(action=RoutingAction.PLAY_SEARCHING_MESSAGE)
-        if ride.status in {RideStatus.DRIVER_ASSIGNED, RideStatus.DRIVER_ON_THE_WAY} and ride.driver:
+        if ride.status in {RideStatus.DRIVER_ASSIGNED, RideStatus.DRIVER_ON_THE_WAY} and ride.driver_profile:
+            driver_phone = ride.driver_profile.user.phone_number if ride.driver_profile and ride.driver_profile.user else None
+            if not driver_phone:
+                return CallRoutingResolveResponse(
+                    action=RoutingAction.PLAY_GENERIC_MESSAGE,
+                    message="Assigned driver is missing a phone number.",
+                )
             return CallRoutingResolveResponse(
                 action=RoutingAction.CONNECT_TO_DRIVER,
                 rideId=ride.id,
-                targetPhone=ride.driver.phone_number,
+                targetPhone=driver_phone,
             )
 
         return CallRoutingResolveResponse(action=RoutingAction.PLAY_GENERIC_MESSAGE, message="Unhandled ride state.")

@@ -9,11 +9,13 @@ from app.db.models import (
     additional_message_template_model,
     city_model,
     customer_model,
+    dispatcher_profile_model,
     driver_profile_model,
     price_template_model,
     ride_event_model,
     ride_model,
     station_model,
+    station_owner_profile_model,
     user_model,
     user_station_model,
 )  # noqa: F401
